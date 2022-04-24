@@ -8,23 +8,21 @@ import blobconverter
 import numpy as np
 from libraries.depthai_replay import Replay
 
-def compute_speed(prev_x, x, prev_y, y, prev_z, z, prev_t, t):
-    try:
-        x_speed = (x-prev_x)/(t-prev_t)/1000
-    except:
-        x_speed = (x-prev_x)/1000
-        
-    try:
-        y_speed = (y-prev_y)/(t-prev_t)/1000
-    except:
-        y_speed = (y-prev_y)/1000
-        
-    try:
-        z_speed = (z-prev_z)/(t-prev_t)/1000
-    except:
-        z_speed = (z-prev_z)/1000
-        
-    return [x_speed, y_speed, z_speed]
+# Compute saved fuel: first order approximation
+# Data from CFD simulation
+Cd1, dist1 = 0.265, 10000
+Cd2, dist2 = 0.051, 300
+m_Cd = (Cd1 - Cd2) / (dist1-dist2)  #[Cd/mm]
+q_Cd = Cd1 - (m_Cd * dist1)              #[Cd]
+
+# Data and hypotesis
+absolute_speed = 25     #[m/s], 90 [km/h]
+reference_area = 10.5   #[m^2]
+air_density = 1.225     #[kg/m^3]
+roll_resistance_power = 70630 #[W]
+# Nominal case: power of air drag
+nominal_Cd = 0.704
+nominal_power = 1/2*reference_area*air_density*nominal_Cd*pow(absolute_speed,3) + roll_resistance_power  #[W]
 
 '''
 # NN for license plate detection, PROBLEM: need front facing cars
@@ -99,6 +97,15 @@ with dai.Device(pipeline) as device:
 
     disparityMultiplier = 255 / nodes.stereo.initialConfig.getMaxDisparity()
     color = (255, 0, 0)
+    
+    # Previous distance detected
+    previous_distance = np.zeros(3)
+    # Previous timestamp
+    previous_time = 0
+    
+    fps = 30
+    time_interval = 1/fps
+        
     # Read rgb/mono frames, send them to device and wait for the spatial object detection results
     while replay.send_frames():
         rgbFrame = replay.lastFrame['color']
@@ -113,6 +120,8 @@ with dai.Device(pipeline) as device:
         # depthFrameColor = cv2.equalizeHist(depthFrameColor)
         depthFrameColor = cv2.applyColorMap(depthFrameColor, cv2.COLORMAP_JET)
 
+        current_time = previous_time + time_interval
+        
         inDet = detQ.tryGet()
         if inDet is not None:
             # Display (spatial) object detections on the color frame
@@ -134,6 +143,43 @@ with dai.Device(pipeline) as device:
 
                 cv2.rectangle(rgbFrame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX)
 
+            # Just for first detection...
+            if(len(inDet.detections) != 0):
+                detection = inDet.detections[0]
+                x = int(detection.xmin * frame_dimension[0])
+                y = int(detection.ymin * frame_dimension[1])
+                           
+                # Current distance
+                current_distance = np.zeros(3)
+                current_distance[0] = detection.spatialCoordinates.x
+                current_distance[1] = detection.spatialCoordinates.y
+                current_distance[2] = detection.spatialCoordinates.z
+                # Compute relative speed [m/s] 
+                try:
+                    speed = (current_distance-previous_distance)/(current_time-previous_time)/1000
+                except:
+                    speed = (current_distance-previous_distance)/1000
+                # Display speed
+                cv2.putText(rgbFrame, f"V_X: {float(round(speed[0],3))} m/s", (x + 10, y + 110), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                cv2.putText(rgbFrame, f"V_Y: {float(round(speed[1],3))} m/s", (x + 10, y + 125), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                cv2.putText(rgbFrame, f"V_Z: {float(round(speed[2],3))} m/s", (x + 10, y + 140), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                
+                # Save previous location and timestamp
+                previous_distance = current_distance
+                previous_time = current_time
+                
+                
+                # Compute saved fuel, same hp as row 16
+                if current_distance[2] != 0:
+                    Cd = m_Cd * current_distance[2] + q_Cd
+                    power = 1/2*reference_area*air_density*Cd*pow(absolute_speed,3)+roll_resistance_power
+                    saved_fuel = (nominal_power-power) / nominal_power * 100
+                else:
+                    saved_fuel = 0
+                # Display saved fuel
+                cv2.putText(rgbFrame, f"saved fuel (hp: speed 25[m/s]): {float(round(saved_fuel,3))}%", (10, frame_dimension[0]-15), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0,0,0))
+                
+            
         cv2.imshow("rgb", rgbFrame)
         cv2.imshow("depth", depthFrameColor)
 

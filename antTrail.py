@@ -7,24 +7,6 @@ import numpy as np
 import time
 import blobconverter
 
-def compute_speed(prev_x, x, prev_y, y, prev_z, z, prev_t, t):
-    try:
-        x_speed = (x-prev_x)/(t-prev_t)/1000
-    except:
-        x_speed = (x-prev_x)/1000
-        
-    try:
-        y_speed = (y-prev_y)/(t-prev_t)/1000
-    except:
-        y_speed = (y-prev_y)/1000
-        
-    try:
-        z_speed = (z-prev_z)/(t-prev_t)/1000
-    except:
-        z_speed = (z-prev_z)/1000
-        
-    return [x_speed, y_speed, z_speed]
-
 '''
 Spatial detection network demo.
     Performs inference on RGB camera and retrieves spatial location coordinates: x,y,z relative to the center of depth map.
@@ -125,7 +107,7 @@ with dai.Device(pipeline) as device:
     fps = 0
     
     # Previous distance detected
-    previous_X_distance, previous_Y_distance, previous_Z_distance = 0, 0, 0
+    previous_distance = np.zeros(3)
     # Previous timestamp
     previous_time = time.monotonic()
     
@@ -194,24 +176,23 @@ with dai.Device(pipeline) as device:
             x = int(detection.xmin * width)
             y = int(detection.ymin * height)
             
-            # Current distance
-            X_distance = detection.spatialCoordinates.x
-            Y_distance = detection.spatialCoordinates.y
-            Z_distance = detection.spatialCoordinates.z
+            # Current distance            
+            current_distance = np.zeros(3)
+            current_distance[0] = detection.spatialCoordinates.x
+            current_distance[1] = detection.spatialCoordinates.y
+            current_distance[2] = detection.spatialCoordinates.z
             # Compute relative speed [m/s] 
-            [X_speed, Y_speed, Z_speed] = compute_speed(previous_X_distance, X_distance,
-                                                        previous_Y_distance, Y_distance,
-                                                        previous_Z_distance, Z_distance,
-                                                        previous_time, current_time)
+            try:
+                speed = (current_distance-previous_distance)/(current_time-previous_time)/1000
+            except:
+                speed = (current_distance-previous_distance)/1000
             # Display speed
-            cv2.putText(frame, f"V_X: {float(X_speed)} m/s", (x + 10, y + 110), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(frame, f"V_Y: {float(Y_speed)} m/s", (x + 10, y + 135), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(frame, f"V_Z: {float(Z_speed)} m/s", (x + 10, y + 150), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            
+            cv2.putText(frame, f"V_X: {float(round(speed[0],3))} m/s", (x + 10, y + 110), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+            cv2.putText(frame, f"V_Y: {float(round(speed[1],3))} m/s", (x + 10, y + 125), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+            cv2.putText(frame, f"V_Z: {float(round(speed[2],3))} m/s", (x + 10, y + 140), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                
             # Save previous location and timestamp
-            previous_X_distance = X_distance
-            previous_Y_distance = Y_distance
-            previous_Z_distance = Z_distance
+            previous_distance = current_distance
             previous_time = current_time
             
         cv2.putText(frame, "NN fps: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, (255,255,255))

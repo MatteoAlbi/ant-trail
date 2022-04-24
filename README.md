@@ -25,3 +25,7 @@ Install the requirements for the recording example:
 ```
 python3 -m pip install -r requirements.txt
 ```
+
+
+## UI Dashboard
+![Alt text](UI_dashboard.jpg?raw=true "UI Dashboard available to truck drivers and stakeholders")

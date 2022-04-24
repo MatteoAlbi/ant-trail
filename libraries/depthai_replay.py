@@ -37,12 +37,15 @@ class Replay:
         self.color_size = None
         # By default crop image as needed to keep the aspect ratio
         self.keep_ar = True
+        self.crop_spacing = None
 
     # Resize color frames prior to sending them to the device
     def set_resize_color(self, size):
         self.color_size = size
     def keep_aspect_ratio(self, keep_aspect_ratio):
         self.keep_ar = keep_aspect_ratio
+    def set_crop_spacing(self, space):
+        self.crop_spacing = space
 
     def disable_stream(self, stream_name):
         if stream_name not in self.cap:
@@ -71,12 +74,37 @@ class Replay:
             # Use full height, crop width
             new_w = (desired_ratio/current_ratio) * w
             crop = int((w - new_w) / 2)
-            preview = frame[:, crop:w-crop]
+            
+            if self.crop_spacing is None: 
+                # No spacing defined
+                preview = frame[:, crop:w-crop]
+            else:
+                # Add crop spacing wrt center
+                space = self.crop_spacing[0]
+                # out of boundary check
+                if w - crop + space > w:
+                    # space until right boundary
+                    preview = frame[:, -new_w:]
+                else:
+                    preview = frame[:, crop+space:w-crop+space]
+                
         else: # Crop height
             # Use full width, crop height
             new_h = (current_ratio/desired_ratio) * h
             crop = int((h - new_h) / 2)
-            preview = frame[crop:h-crop,:]
+            
+            if self.crop_spacing is None: 
+                # No spacing defined
+                preview = frame[crop:h-crop,:]
+            else:
+                # Add crop spacing wrt center
+                space = self.crop_spacing[1]
+                # out of boundary check
+                if h - crop + space > h:
+                    # space until right boundary
+                    preview = frame[-new_h:,:]
+                else:
+                    preview = frame[crop+space:h-crop+space,:]
 
         return cv2.resize(preview, self.color_size)
 

@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-import sys
 import cv2
 import depthai as dai
 import numpy as np
 import time
-import argparse
 import blobconverter
-from libraries.depthai_replay import Replay
 
 def compute_speed(prev_x, x, prev_y, y, prev_z, z, prev_t, t):
     try:
@@ -33,27 +30,18 @@ Spatial detection network demo.
     Performs inference on RGB camera and retrieves spatial location coordinates: x,y,z relative to the center of depth map.
 '''
 
-path = ".\\recordings\\6-18443010C174B50F00"
-
-if len(sys.argv) > 1:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--path', default="data", type=str, help="Path where to store the captured data")
-    args = parser.parse_args()
-    path = args.path
-
-# Create Replay object
-replay = Replay(path)
-
 # Get argument first
 #nnBlobPath = str((Path(__file__).parent / Path('../models/mobilenet-ssd_openvino_2021.4_6shave.blob')).resolve().absolute())
 
+'''
 # NN for license plate detection, PROBLEM: need front facing cars
 nnBlobPath=blobconverter.from_zoo(name="vehicle-license-plate-detection-barrier-0106", shaves=6)
 frame_dimension = [300,300]
+'''
 
 # NN for vehicle detection
-#nnBlobPath=blobconverter.from_zoo(name="vehicle-detection-0202", shaves=6)
-#frame_dimension = [512,512]
+nnBlobPath=blobconverter.from_zoo(name="vehicle-detection-0202", shaves=6)
+frame_dimension = [512,512]
 
 print("nnBlobPath: ", nnBlobPath)
 
@@ -62,8 +50,7 @@ if not Path(nnBlobPath).exists():
     raise FileNotFoundError(f'Required file/s not found, please run "{sys.executable} install_requirements.py"')
 
 # MobilenetSSD label texts
-labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
-            "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+labelMap = ["vehicle"]
 
 syncNN = True
 

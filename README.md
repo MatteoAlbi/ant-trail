@@ -24,8 +24,19 @@ Install the requirements for the recording example:
 
 ```
 python3 -m pip install -r requirements.txt
+```
 
+For detecting vehicle from a recorded video 
+```
+python3 antTrail_recording.py
+
+```
+
+For detecting vehicle from from live camera stream
+
+```
 python3 antTrail.py
+
 ```
 
 

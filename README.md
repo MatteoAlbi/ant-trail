@@ -24,6 +24,8 @@ Install the requirements for the recording example:
 
 ```
 python3 -m pip install -r requirements.txt
+
+python3 antTrail.py
 ```
 
 

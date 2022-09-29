@@ -36,7 +36,7 @@ frame_dimension = [512,512]
 
 labelMap = ["vehicle"]
 
-path = ".\\recordings\\car1_backup"
+path = "..\\recordings\\car1"
 if len(sys.argv) > 1:
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', default="data", type=str, help="Path where to store the captured data")
